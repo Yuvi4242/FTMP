@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# Build artifacts & distribution
+dist/
+*/dist/
+**/dist/
+web-build/
+*/web-build/
+**/web-build/
+
+# Expo caches & native artifacts
+.expo/
+*/.expo/
+**/.expo/
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+
+# Environment & credentials
+.env
+.env*.local
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.claude/
+*/.claude/
+CLAUDE.md
+*/CLAUDE.md
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Tooling, agents, & design generation workspaces
+.agents/
+_agents/
+.stitch/
+site/
