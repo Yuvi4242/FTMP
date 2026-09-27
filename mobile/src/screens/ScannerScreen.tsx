@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { THEME } from '../constants/theme';
 import { ActionButton } from '../components/common/ActionButton';
+import { safeGoBack } from '../utils/navigation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -87,7 +88,7 @@ export const ScannerScreen: React.FC<{ navigation: any }> = ({ navigation }) => 
           />
           <ActionButton
             title="Cancel"
-            onPress={() => navigation.goBack()}
+            onPress={() => safeGoBack(navigation)}
             variant="ghost"
             size="sm"
           />
@@ -110,7 +111,7 @@ export const ScannerScreen: React.FC<{ navigation: any }> = ({ navigation }) => 
         <View style={styles.topBar}>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.goBack()}
+            onPress={() => safeGoBack(navigation)}
             style={styles.circleButton}
           >
             <X size={20} color="#FFFFFF" />

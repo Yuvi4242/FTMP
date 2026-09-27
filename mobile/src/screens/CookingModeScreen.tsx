@@ -23,6 +23,7 @@ import { THEME } from '../constants/theme';
 import { useRecipeStore } from '../stores/useRecipeStore';
 import { useInventoryStore } from '../stores/useInventoryStore';
 import { ActionButton } from '../components/common/ActionButton';
+import { safeGoBack } from '../utils/navigation';
 
 export const CookingModeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const {
@@ -45,7 +46,7 @@ export const CookingModeScreen: React.FC<{ navigation: any }> = ({ navigation })
   if (!selectedRecipe) {
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => safeGoBack(navigation)}>
           <Text style={{ color: '#FFFFFF', padding: 20 }}>Close</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -113,7 +114,7 @@ export const CookingModeScreen: React.FC<{ navigation: any }> = ({ navigation })
   const handleExit = () => {
     Alert.alert('Exit Cooking Mode?', 'Your timer and step progress will be reset.', [
       { text: 'Keep Cooking', style: 'cancel' },
-      { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
+      { text: 'Exit', style: 'destructive', onPress: () => safeGoBack(navigation) },
     ]);
   };
 

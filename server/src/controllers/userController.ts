@@ -1,11 +1,11 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import { store } from '../services/store';
+import { DBService } from '../services/dbService';
 
 export const getProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const user = store.users.get(userId);
+    const user = await DBService.getUserById(userId);
 
     if (!user) {
       res.status(404).json({ error: 'User profile not found.' });
@@ -27,7 +27,7 @@ export const updatePreferences = async (req: AuthRequest, res: Response): Promis
     const userId = req.user?.id || 'user-alex-1';
     const updates = req.body;
 
-    const user = store.users.get(userId);
+    const user = await DBService.getUserById(userId);
     if (!user) {
       res.status(404).json({ error: 'User not found.' });
       return;
@@ -38,7 +38,7 @@ export const updatePreferences = async (req: AuthRequest, res: Response): Promis
       ...updates,
     };
     user.updatedAt = new Date().toISOString();
-    store.users.set(userId, user);
+    await DBService.saveUser(user);
 
     res.json({
       success: true,
@@ -55,7 +55,7 @@ export const updateNotifications = async (req: AuthRequest, res: Response): Prom
     const userId = req.user?.id || 'user-alex-1';
     const updates = req.body;
 
-    const user = store.users.get(userId);
+    const user = await DBService.getUserById(userId);
     if (!user) {
       res.status(404).json({ error: 'User not found.' });
       return;
@@ -66,7 +66,7 @@ export const updateNotifications = async (req: AuthRequest, res: Response): Prom
       ...updates,
     };
     user.updatedAt = new Date().toISOString();
-    store.users.set(userId, user);
+    await DBService.saveUser(user);
 
     res.json({
       success: true,
@@ -81,8 +81,8 @@ export const updateNotifications = async (req: AuthRequest, res: Response): Prom
 export const getWasteStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const meals = Array.from(store.mealHistory.values()).filter((m) => m.userId === userId);
-    const inventory = Array.from(store.inventory.values()).filter((i) => i.userId === userId);
+    const meals = await DBService.getMealHistory(userId);
+    const inventory = await DBService.getInventory(userId);
 
     const totalMealsCooked = meals.length;
     const totalIngredientsRescued = meals.reduce((acc, m) => acc + (m.ingredientsRescuedCount || 0), 0);

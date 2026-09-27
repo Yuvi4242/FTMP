@@ -70,9 +70,12 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
+import { DBService } from './services/dbService';
+
 // Start Server
 const startServer = async () => {
   await connectDB();
+  await DBService.seedMongoIfEmpty();
   app.listen(PORT, () => {
     console.log(`=======================================================`);
     console.log(`🚀 FridgeAI Server running on port ${PORT}`);

@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Platform,
 } from 'react-native';
 import { THEME } from '../../constants/theme';
 
@@ -137,11 +138,18 @@ const styles = StyleSheet.create({
   primaryContainer: {
     backgroundColor: THEME.colors.primary,
     borderWidth: 0,
-    shadowColor: THEME.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 4px rgba(255, 107, 53, 0.25)',
+      },
+      default: {
+        shadowColor: THEME.colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
   },
   secondaryContainer: {
     backgroundColor: THEME.colors.surface,

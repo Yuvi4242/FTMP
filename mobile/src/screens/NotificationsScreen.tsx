@@ -14,6 +14,7 @@ import { THEME } from '../constants/theme';
 import { useAuthStore } from '../stores/useAuthStore';
 import { AppHeader } from '../components/common/AppHeader';
 import { ActionButton } from '../components/common/ActionButton';
+import { safeGoBack } from '../utils/navigation';
 
 export const NotificationsScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user, updateNotifications } = useAuthStore();
@@ -33,7 +34,7 @@ export const NotificationsScreen: React.FC<{ navigation: any }> = ({ navigation 
       pushEnabled: pushEnabled,
     });
     Alert.alert('Saved', 'Your notification alert settings have been updated.');
-    navigation.goBack();
+    safeGoBack(navigation);
   };
 
   return (
@@ -42,7 +43,7 @@ export const NotificationsScreen: React.FC<{ navigation: any }> = ({ navigation 
       <AppHeader
         title="Expiry & Cooking Alerts"
         subtitle="Stay ahead of food waste without spam"
-        onBack={() => navigation.goBack()}
+        onBack={() => safeGoBack(navigation)}
       />
 
       <ScrollView

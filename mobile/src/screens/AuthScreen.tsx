@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Refrigerator, ArrowRight } from 'lucide-react-native';
+import { Refrigerator, ArrowRight, AlertCircle } from 'lucide-react-native';
 import { THEME } from '../constants/theme';
 import { ActionButton } from '../components/common/ActionButton';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -19,18 +19,58 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('alex.morgan@email.com');
   const [password, setPassword] = useState('password123');
-  const { fetchProfile } = useAuthStore();
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const { login, register, loginAsDemo, isLoading, error } = useAuthStore();
 
   const handleAuth = async () => {
-    // Proceed to app
-    await fetchProfile();
-    navigation.replace('MainTabs');
+    setLocalError(null);
+    if (!email.trim() || !password) {
+      setLocalError('Please enter your email and password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setLocalError('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (isRegister) {
+      if (!name.trim()) {
+        setLocalError('Please enter your full name.');
+        return;
+      }
+      const success = await register(name.trim(), email.trim(), password);
+      if (success) {
+        try {
+          navigation?.navigate?.('MainTabs');
+        } catch (e) {}
+      } else {
+        setLocalError(useAuthStore.getState().error || 'Registration failed.');
+      }
+    } else {
+      const success = await login(email.trim(), password);
+      if (success) {
+        try {
+          navigation?.navigate?.('MainTabs');
+        } catch (e) {}
+      } else {
+        setLocalError(useAuthStore.getState().error || 'Invalid email or password.');
+      }
+    }
   };
 
   const handleDemoLogin = async () => {
-    await fetchProfile();
-    navigation.replace('MainTabs');
+    setLocalError(null);
+    const success = await loginAsDemo();
+    if (success) {
+      try {
+        navigation?.navigate?.('MainTabs');
+      } catch (e) {}
+    }
   };
+
+  const activeError = localError || error;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -41,9 +81,9 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           <Refrigerator size={38} color={THEME.colors.primary} />
         </View>
 
-        <Text style={styles.appTitle}>FreshTrack</Text>
+        <Text style={styles.appTitle}>FridgeAI</Text>
         <Text style={styles.tagline}>
-          Smart Pantry & Zero-Waste Meal Studio
+          AI Fridge-to-Meal Planner for Solo Dwellers
         </Text>
 
         {/* Auth Form Card */}
@@ -51,6 +91,13 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           <Text style={styles.formTitle}>
             {isRegister ? 'Create Your Account' : 'Welcome Back'}
           </Text>
+
+          {activeError ? (
+            <View style={styles.errorBox}>
+              <AlertCircle size={16} color={THEME.colors.danger} />
+              <Text style={styles.errorText}>{activeError}</Text>
+            </View>
+          ) : null}
 
           {isRegister ? (
             <View style={styles.inputGroup}>
@@ -60,7 +107,10 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 placeholder="Alex Morgan"
                 placeholderTextColor={THEME.colors.textMuted}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(t) => {
+                  setName(t);
+                  setLocalError(null);
+                }}
               />
             </View>
           ) : null}
@@ -74,7 +124,10 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(t) => {
+                setEmail(t);
+                setLocalError(null);
+              }}
             />
           </View>
 
@@ -86,13 +139,17 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
               placeholderTextColor={THEME.colors.textMuted}
               secureTextEntry
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(t) => {
+                setPassword(t);
+                setLocalError(null);
+              }}
             />
           </View>
 
           <ActionButton
             title={isRegister ? 'Create Account' : 'Sign In'}
             onPress={handleAuth}
+            loading={isLoading}
             size="lg"
             style={styles.submitBtn}
           />
@@ -108,7 +165,10 @@ export const AuthScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => setIsRegister(!isRegister)}
+            onPress={() => {
+              setIsRegister(!isRegister);
+              setLocalError(null);
+            }}
             style={styles.switchRow}
           >
             <Text style={styles.switchText}>
@@ -139,74 +199,93 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 20,
     backgroundColor: THEME.colors.surface,
-    borderWidth: 2,
-    borderColor: THEME.colors.primary,
-    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: THEME.colors.border,
     justifyContent: 'center',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: THEME.spacing.md,
   },
   appTitle: {
-    fontSize: 28,
+    fontSize: THEME.typography.sizes.xxl,
     fontWeight: '800',
     color: THEME.colors.textPrimary,
     letterSpacing: -0.5,
+    marginBottom: 4,
   },
   tagline: {
     fontSize: THEME.typography.sizes.sm,
     color: THEME.colors.textSecondary,
+    marginBottom: THEME.spacing.xl,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 28,
-    maxWidth: 280,
   },
   formCard: {
     width: '100%',
+    maxWidth: 420,
     backgroundColor: THEME.colors.surface,
     borderRadius: THEME.radii.card,
-    padding: THEME.spacing.lg,
+    padding: THEME.spacing.xl,
     borderWidth: 1,
     borderColor: THEME.colors.border,
   },
   formTitle: {
-    fontSize: 18,
+    fontSize: THEME.typography.sizes.lg,
     fontWeight: '700',
     color: THEME.colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: THEME.spacing.md,
     textAlign: 'center',
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: THEME.colors.danger,
+    borderRadius: THEME.radii.input,
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: THEME.spacing.sm,
+    marginBottom: THEME.spacing.md,
+  },
+  errorText: {
+    color: THEME.colors.danger,
+    fontSize: THEME.typography.sizes.xs + 1,
+    fontWeight: '500',
+    flex: 1,
+  },
   inputGroup: {
-    marginBottom: 14,
+    marginBottom: THEME.spacing.md,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: THEME.typography.sizes.xs,
     fontWeight: '600',
     color: THEME.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 6,
   },
   input: {
     backgroundColor: THEME.colors.surfaceElevated,
     borderRadius: THEME.radii.input,
-    paddingHorizontal: 12,
-    height: 46,
-    fontSize: THEME.typography.sizes.sm,
-    color: THEME.colors.textPrimary,
     borderWidth: 1,
     borderColor: THEME.colors.border,
+    paddingHorizontal: THEME.spacing.md,
+    paddingVertical: 12,
+    color: THEME.colors.textPrimary,
+    fontSize: THEME.typography.sizes.sm + 1,
   },
   submitBtn: {
-    marginTop: 8,
-    width: '100%',
+    marginTop: THEME.spacing.sm,
+    marginBottom: THEME.spacing.md,
   },
   demoBtn: {
-    marginTop: 10,
-    width: '100%',
+    marginBottom: THEME.spacing.lg,
   },
   switchRow: {
-    marginTop: 16,
     alignItems: 'center',
   },
   switchText: {
-    fontSize: THEME.typography.sizes.xs,
-    color: THEME.colors.textSecondary,
+    color: THEME.colors.primary,
+    fontSize: THEME.typography.sizes.sm,
+    fontWeight: '600',
   },
 });

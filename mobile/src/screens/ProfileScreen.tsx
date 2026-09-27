@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -25,13 +26,16 @@ import { AppHeader } from '../components/common/AppHeader';
 import { ActionButton } from '../components/common/ActionButton';
 
 export const ProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => navigation.navigate('Auth') },
-    ]);
+    logout();
+    try {
+      navigation?.getParent?.()?.navigate?.('Auth');
+    } catch (e) {}
+    try {
+      navigation?.navigate?.('Auth');
+    } catch (e) {}
   };
 
   return (

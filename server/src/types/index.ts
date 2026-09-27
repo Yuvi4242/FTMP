@@ -113,6 +113,7 @@ export interface IRecipe {
     neededIngredients: string[];
   }[];
   imageUrl?: string;
+  isFavorite?: boolean;
 }
 
 export interface IGroceryItem {
@@ -139,4 +140,6 @@ export interface IMealHistory {
   ingredientsRescuedCount: number;
   estimatedSavingsUsd: number;
   zeroWasteBadge: boolean;
+  notes?: string;
+  rating?: number;
 }

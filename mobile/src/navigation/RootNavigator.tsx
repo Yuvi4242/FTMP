@@ -17,10 +17,13 @@ import { PreferencesScreen } from '../screens/PreferencesScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { THEME } from '../constants/theme';
+import { useAuthStore } from '../stores/useAuthStore';
 
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator: React.FC = () => {
+  const { isAuthenticated } = useAuthStore();
+
   return (
     <NavigationContainer
       theme={{
@@ -42,13 +45,19 @@ export const RootNavigator: React.FC = () => {
       }}
     >
       <Stack.Navigator
-        initialRouteName="MainTabs"
+        key={isAuthenticated ? 'app-authenticated' : 'app-unauthenticated'}
+        initialRouteName={isAuthenticated ? 'MainTabs' : 'Auth'}
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
           contentStyle: { backgroundColor: THEME.colors.canvas },
         }}
       >
+        <Stack.Screen
+          name="Auth"
+          component={AuthScreen}
+          options={{ animation: 'fade' }}
+        />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen
           name="Scanner"
@@ -108,11 +117,6 @@ export const RootNavigator: React.FC = () => {
         <Stack.Screen
           name="Notifications"
           component={NotificationsScreen}
-        />
-        <Stack.Screen
-          name="Auth"
-          component={AuthScreen}
-          options={{ animation: 'fade' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -25,6 +25,7 @@ import { useInventoryStore } from '../stores/useInventoryStore';
 import { AppHeader } from '../components/common/AppHeader';
 import { ActionButton } from '../components/common/ActionButton';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { safeGoBack } from '../utils/navigation';
 
 const INITIAL_DETECTED: IDetectedIngredient[] = [
   {
@@ -139,7 +140,7 @@ export const IngredientConfirmScreen: React.FC<{ navigation: any; route: any }> 
       <AppHeader
         title="Confirm Ingredients"
         subtitle={`${items.length} items detected from scan`}
-        onBack={() => navigation.goBack()}
+        onBack={() => safeGoBack(navigation)}
       />
 
       <ScrollView

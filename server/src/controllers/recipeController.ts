@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { store } from '../services/store';
+import { DBService } from '../services/dbService';
 import { AIService } from '../services/aiService';
 import { AuthRequest } from '../middleware/auth';
 import { IRecipe } from '../types';
@@ -9,7 +9,7 @@ export const getRecommendedRecipes = async (req: AuthRequest, res: Response): Pr
     const userId = req.user?.id || 'user-alex-1';
     const filter = req.query.filter as string | undefined;
 
-    const user = store.users.get(userId);
+    const user = await DBService.getUserById(userId);
     const preferences = user?.preferences || {
       soloDwellerMode: true,
       dietaryRestrictions: ['High Protein'],
@@ -19,15 +19,16 @@ export const getRecommendedRecipes = async (req: AuthRequest, res: Response): Pr
       defaultServings: 1,
     };
 
-    const inventory = Array.from(store.inventory.values()).filter((i) => i.userId === userId);
+    const inventory = await DBService.getInventory(userId);
+    let recipes = await DBService.getRecipes(userId);
 
-    let recipes = Array.from(store.recipes.values());
-
-    // Dynamically generate AI recipes if store has fewer than 3
+    // If store has fewer than 3 recipes, generate AI recipes
     if (recipes.length < 3) {
       const aiGenerated = await AIService.generatePersonalizedRecipes(inventory, preferences);
-      aiGenerated.forEach((r) => store.recipes.set(r.id, r));
-      recipes = Array.from(store.recipes.values());
+      for (const r of aiGenerated) {
+        await DBService.saveRecipe(r);
+      }
+      recipes = await DBService.getRecipes(userId);
     }
 
     // Apply filters
@@ -47,12 +48,18 @@ export const getRecommendedRecipes = async (req: AuthRequest, res: Response): Pr
       return b.matchPercentage - a.matchPercentage;
     });
 
+    const expiringItems = inventory.filter((i) => i.daysUntilExpiry <= 2);
+    const expiringMessage =
+      expiringItems.length > 0
+        ? `Prioritizing recipes that use ${expiringItems.map((i) => `${i.name} (${i.daysUntilExpiry}d left)`).join(' and ')}`
+        : 'Zero food waste active — using all fresh ingredients';
+
     res.json({
       count: recipes.length,
       recipes,
       expiringPriorityBanner: {
         active: true,
-        message: 'Prioritizing recipes that use Chicken Breast (expires today) and Spinach (2 days left)',
+        message: expiringMessage,
       },
     });
   } catch (error: any) {
@@ -63,7 +70,7 @@ export const getRecommendedRecipes = async (req: AuthRequest, res: Response): Pr
 export const getRecipeById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const recipe = store.recipes.get(id);
+    const recipe = await DBService.getRecipeById(id);
 
     if (!recipe) {
       res.status(404).json({ error: 'Recipe not found' });
@@ -81,7 +88,7 @@ export const scaleRecipe = async (req: AuthRequest, res: Response): Promise<void
     const id = String(req.params.id);
     const targetServings = Number(req.body.servings) || 1;
 
-    const recipe = store.recipes.get(id);
+    const recipe = await DBService.getRecipeById(id);
     if (!recipe) {
       res.status(404).json({ error: 'Recipe not found' });
       return;
@@ -89,7 +96,6 @@ export const scaleRecipe = async (req: AuthRequest, res: Response): Promise<void
 
     const scaleFactor = targetServings / recipe.servings;
 
-    // Scale recipe quantities
     const scaledRecipe: IRecipe = {
       ...recipe,
       servings: targetServings,
@@ -100,7 +106,6 @@ export const scaleRecipe = async (req: AuthRequest, res: Response): Promise<void
         fat: `${Math.round(parseInt(recipe.macros.fat) * scaleFactor)}g`,
       },
       ingredients: recipe.ingredients.map((ing) => {
-        // Simple numeric scaling heuristic
         const match = ing.amount.match(/^([\d./]+)\s*(.*)$/);
         if (match) {
           const num = parseFloat(match[1]) * scaleFactor;
@@ -114,6 +119,74 @@ export const scaleRecipe = async (req: AuthRequest, res: Response): Promise<void
     };
 
     res.json(scaledRecipe);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const generateCustomRecipe = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id || 'user-alex-1';
+    const { prompt } = req.body;
+
+    if (!prompt) {
+      res.status(400).json({ error: 'Please provide a recipe idea or prompt.' });
+      return;
+    }
+
+    const user = await DBService.getUserById(userId);
+    const preferences = user?.preferences || {
+      soloDwellerMode: true,
+      dietaryRestrictions: ['High Protein'],
+      cookingSkill: 'Intermediate',
+      maxCookTimeMinutes: 30,
+      spiceTolerance: 'Medium',
+      defaultServings: 1,
+    };
+
+    const inventory = await DBService.getInventory(userId);
+    const recipe = await AIService.generateCustomAiRecipe(prompt, inventory, preferences);
+    await DBService.saveRecipe(recipe);
+
+    res.status(201).json(recipe);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getSubstitutions = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const ingredient = req.query.ingredient as string;
+    const recipeTitle = req.query.recipeTitle as string | undefined;
+
+    if (!ingredient) {
+      res.status(400).json({ error: 'Please provide an ingredient query parameter.' });
+      return;
+    }
+
+    const result = await AIService.getChefSubstitutions(ingredient, recipeTitle);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getZeroWasteMealPlan = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id || 'user-alex-1';
+    const user = await DBService.getUserById(userId);
+    const preferences = user?.preferences || {
+      soloDwellerMode: true,
+      dietaryRestrictions: ['High Protein'],
+      cookingSkill: 'Intermediate',
+      maxCookTimeMinutes: 30,
+      spiceTolerance: 'Medium',
+      defaultServings: 1,
+    };
+
+    const inventory = await DBService.getInventory(userId);
+    const plan = await AIService.generateZeroWasteMealPlan(inventory, preferences);
+    res.json(plan);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

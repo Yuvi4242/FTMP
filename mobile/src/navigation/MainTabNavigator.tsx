@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
   Home,
@@ -113,12 +113,18 @@ const styles = StyleSheet.create({
     borderRadius: 14, // 14px rounded rectangle (never pill)
     backgroundColor: THEME.colors.primary,
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: THEME.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 4px 6px rgba(255, 107, 53, 0.35)',
+      },
+      default: {
+        shadowColor: THEME.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 8,
+      },
+    }),
     borderWidth: 2,
     borderColor: THEME.colors.canvas,
   },

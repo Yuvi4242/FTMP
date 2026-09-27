@@ -26,6 +26,7 @@ import { useRecipeStore } from '../stores/useRecipeStore';
 import { AppHeader } from '../components/common/AppHeader';
 import { ActionButton } from '../components/common/ActionButton';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { safeGoBack } from '../utils/navigation';
 
 export const IngredientDetailScreen: React.FC<{ navigation: any; route: any }> = ({
   navigation,
@@ -38,7 +39,7 @@ export const IngredientDetailScreen: React.FC<{ navigation: any; route: any }> =
   if (!item) {
     return (
       <SafeAreaView style={styles.container}>
-        <AppHeader title="Ingredient" onBack={() => navigation.goBack()} />
+        <AppHeader title="Ingredient" onBack={() => safeGoBack(navigation)} />
       </SafeAreaView>
     );
   }
@@ -55,7 +56,7 @@ export const IngredientDetailScreen: React.FC<{ navigation: any; route: any }> =
         style: 'destructive',
         onPress: async () => {
           await deleteItem(item.id);
-          navigation.goBack();
+          safeGoBack(navigation);
         },
       },
     ]);
@@ -64,7 +65,7 @@ export const IngredientDetailScreen: React.FC<{ navigation: any; route: any }> =
   const handleMarkConsumed = async () => {
     await deleteItem(item.id);
     Alert.alert('Consumed!', `${item.name} has been marked as used. Great job avoiding waste!`, [
-      { text: 'Done', onPress: () => navigation.goBack() },
+      { text: 'Done', onPress: () => safeGoBack(navigation) },
     ]);
   };
 
@@ -74,7 +75,7 @@ export const IngredientDetailScreen: React.FC<{ navigation: any; route: any }> =
       <AppHeader
         title={item.name}
         subtitle={`${item.quantity} ${item.unit} · ${item.category}`}
-        onBack={() => navigation.goBack()}
+        onBack={() => safeGoBack(navigation)}
         rightAction={
           <TouchableOpacity onPress={handleDelete} style={styles.deleteHeaderBtn}>
             <Trash2 size={20} color={THEME.colors.danger} />

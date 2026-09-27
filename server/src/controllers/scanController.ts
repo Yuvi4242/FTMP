@@ -1,14 +1,25 @@
 import { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { AIService } from '../services/aiService';
-import { store } from '../services/store';
+import { CloudinaryService } from '../services/cloudinaryService';
+import { DBService } from '../services/dbService';
 import { IInventoryItem, IDetectedIngredient } from '../types';
 import { AuthRequest } from '../middleware/auth';
 
 export const processScan = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.user?.id || 'user-alex-1';
     const file = req.file;
-    const result = await AIService.analyzeFridgeImage(file?.buffer, file?.mimetype);
+    const [result, imageUrl] = await Promise.all([
+      AIService.analyzeFridgeImage(file?.buffer, file?.mimetype),
+      file?.buffer ? CloudinaryService.uploadBuffer(file.buffer) : Promise.resolve(null),
+    ]);
+
+    if (imageUrl) {
+      result.imageUrl = imageUrl;
+    }
+
+    await DBService.saveScanLog(userId, result);
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Vision scan processing failed' });
@@ -18,7 +29,10 @@ export const processScan = async (req: AuthRequest, res: Response): Promise<void
 export const confirmScanIngredients = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const { confirmedIngredients } = req.body as { confirmedIngredients: IDetectedIngredient[] };
+    const { confirmedIngredients, scanImageUrl } = req.body as {
+      confirmedIngredients: IDetectedIngredient[];
+      scanImageUrl?: string;
+    };
 
     if (!Array.isArray(confirmedIngredients) || confirmedIngredients.length === 0) {
       res.status(400).json({ error: 'Please provide at least one confirmed ingredient.' });
@@ -46,11 +60,12 @@ export const confirmScanIngredients = async (req: AuthRequest, res: Response): P
         expiryStatus,
         daysUntilExpiry: days,
         addedViaScan: true,
+        imageUrl: scanImageUrl,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       };
 
-      store.inventory.set(newItem.id, newItem);
+      await DBService.saveInventoryItem(newItem);
       addedItems.push(newItem);
     }
 

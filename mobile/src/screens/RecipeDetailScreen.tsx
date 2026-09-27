@@ -27,6 +27,7 @@ import { useRecipeStore } from '../stores/useRecipeStore';
 import { useGroceryStore } from '../stores/useGroceryStore';
 import { AppHeader } from '../components/common/AppHeader';
 import { ActionButton } from '../components/common/ActionButton';
+import { safeGoBack } from '../utils/navigation';
 
 export const RecipeDetailScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { selectedRecipe, currentServings, scaleServings } = useRecipeStore();
@@ -35,7 +36,7 @@ export const RecipeDetailScreen: React.FC<{ navigation: any }> = ({ navigation }
   if (!selectedRecipe) {
     return (
       <SafeAreaView style={styles.container}>
-        <AppHeader title="Recipe" onBack={() => navigation.goBack()} />
+        <AppHeader title="Recipe" onBack={() => safeGoBack(navigation)} />
       </SafeAreaView>
     );
   }
@@ -55,7 +56,7 @@ export const RecipeDetailScreen: React.FC<{ navigation: any }> = ({ navigation }
       <AppHeader
         title={selectedRecipe.title}
         subtitle={`${selectedRecipe.difficulty} · ${selectedRecipe.cookTimeMinutes} min cook`}
-        onBack={() => navigation.goBack()}
+        onBack={() => safeGoBack(navigation)}
       />
 
       <ScrollView

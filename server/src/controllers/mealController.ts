@@ -1,15 +1,15 @@
 import { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { store } from '../services/store';
+import { DBService } from '../services/dbService';
 import { IMealHistory } from '../types';
 import { AuthRequest } from '../middleware/auth';
 
 export const logMealCooked = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const { recipeId, servingsCooked = 1 } = req.body;
+    const { recipeId, servingsCooked = 1, notes, rating } = req.body;
 
-    const recipe = store.recipes.get(recipeId);
+    const recipe = recipeId ? await DBService.getRecipeById(recipeId) : null;
     const title = recipe ? recipe.title : 'Custom Home Cooked Meal';
     const cookTime = recipe ? recipe.cookTimeMinutes : 15;
     const calories = recipe ? recipe.calories : 450;
@@ -28,29 +28,29 @@ export const logMealCooked = async (req: AuthRequest, res: Response): Promise<vo
       ingredientsRescuedCount: rescued,
       estimatedSavingsUsd: savings,
       zeroWasteBadge: rescued > 0,
+      notes,
+      rating,
     };
 
-    store.mealHistory.set(newRecord.id, newRecord);
+    await DBService.saveMealHistory(newRecord);
 
     // Automatically decrement/consume items in inventory if matching ingredients exist
     if (recipe) {
-      recipe.ingredients.forEach((ing) => {
-        for (const [id, item] of store.inventory.entries()) {
-          if (item.userId === userId && item.name.toLowerCase().includes(ing.name.toLowerCase())) {
-            // If quantity <= 1 or near zero, remove from inventory, else reduce
-            if (item.quantity <= 1) {
-              store.inventory.delete(id);
-            } else {
-              store.inventory.set(id, {
-                ...item,
-                quantity: Math.max(0, item.quantity - 1),
-                updatedAt: new Date().toISOString(),
-              });
-            }
-            break;
+      const inventory = await DBService.getInventory(userId);
+      for (const ing of recipe.ingredients) {
+        const match = inventory.find((item) => item.name.toLowerCase().includes(ing.name.toLowerCase()));
+        if (match) {
+          if (match.quantity <= 1) {
+            await DBService.deleteInventoryItem(match.id);
+          } else {
+            await DBService.saveInventoryItem({
+              ...match,
+              quantity: Math.max(0, match.quantity - 1),
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
-      });
+      }
     }
 
     res.status(201).json({
@@ -65,9 +65,7 @@ export const logMealCooked = async (req: AuthRequest, res: Response): Promise<vo
 export const getMealHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const history = Array.from(store.mealHistory.values())
-      .filter((m) => m.userId === userId)
-      .sort((a, b) => new Date(b.cookedAt).getTime() - new Date(a.cookedAt).getTime());
+    const history = await DBService.getMealHistory(userId);
 
     // Calculate aggregated impact stats
     const totalMeals = history.length;
@@ -77,7 +75,7 @@ export const getMealHistory = async (req: AuthRequest, res: Response): Promise<v
     res.json({
       totalMeals,
       itemsRescued,
-      moneySaved: Math.round(moneySaved),
+      moneySaved: Math.round(moneySaved * 100) / 100,
       history,
     });
   } catch (error: any) {

@@ -15,6 +15,7 @@ import { THEME } from '../constants/theme';
 import { useAuthStore } from '../stores/useAuthStore';
 import { AppHeader } from '../components/common/AppHeader';
 import { ActionButton } from '../components/common/ActionButton';
+import { safeGoBack } from '../utils/navigation';
 
 export const PreferencesScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { user, updatePreferences } = useAuthStore();
@@ -66,7 +67,7 @@ export const PreferencesScreen: React.FC<{ navigation: any }> = ({ navigation })
       defaultServings: 1,
     });
     Alert.alert('Saved', 'Your meal preferences have been updated.');
-    navigation.goBack();
+    safeGoBack(navigation);
   };
 
   return (
@@ -75,7 +76,7 @@ export const PreferencesScreen: React.FC<{ navigation: any }> = ({ navigation })
       <AppHeader
         title="Dietary Preferences"
         subtitle="Customizes AI recipe portions & recommendations"
-        onBack={() => navigation.goBack()}
+        onBack={() => safeGoBack(navigation)}
       />
 
       <ScrollView

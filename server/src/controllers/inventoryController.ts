@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { store } from '../services/store';
+import { DBService } from '../services/dbService';
 import { IInventoryItem } from '../types';
 import { AuthRequest } from '../middleware/auth';
 
@@ -24,7 +24,7 @@ export const getInventory = async (req: AuthRequest, res: Response): Promise<voi
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;
 
-    let items = Array.from(store.inventory.values()).filter((i) => i.userId === userId);
+    let items = await DBService.getInventory(userId);
 
     // Refresh dynamic expiry calculations
     items = items.map((item) => {
@@ -38,7 +38,9 @@ export const getInventory = async (req: AuthRequest, res: Response): Promise<voi
 
     if (category && category !== 'All') {
       if (category === 'Fridge') {
-        items = items.filter((i) => i.storageLocation === 'Main Shelf' || i.storageLocation === 'Crisper Drawer' || i.storageLocation === 'Fridge Door');
+        items = items.filter(
+          (i) => i.storageLocation === 'Main Shelf' || i.storageLocation === 'Crisper Drawer' || i.storageLocation === 'Fridge Door'
+        );
       } else if (category === 'Freezer') {
         items = items.filter((i) => i.storageLocation === 'Freezer Door');
       } else if (category === 'Pantry') {
@@ -66,7 +68,7 @@ export const getInventory = async (req: AuthRequest, res: Response): Promise<voi
 export const getInventorySummary = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const items = Array.from(store.inventory.values()).filter((i) => i.userId === userId);
+    const items = await DBService.getInventory(userId);
 
     let criticalCount = 0;
     let soonCount = 0;
@@ -93,7 +95,7 @@ export const getInventorySummary = async (req: AuthRequest, res: Response): Prom
 export const addInventoryItem = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const { name, quantity, unit, category, storageLocation, expiryDate } = req.body;
+    const { name, quantity, unit, category, storageLocation, expiryDate, imageUrl } = req.body;
 
     if (!name || quantity === undefined) {
       res.status(400).json({ error: 'Name and quantity are required.' });
@@ -116,11 +118,12 @@ export const addInventoryItem = async (req: AuthRequest, res: Response): Promise
       expiryStatus: exp.status,
       daysUntilExpiry: exp.days,
       addedViaScan: false,
+      imageUrl,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    store.inventory.set(newItem.id, newItem);
+    await DBService.saveInventoryItem(newItem);
     res.status(201).json(newItem);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -130,7 +133,7 @@ export const addInventoryItem = async (req: AuthRequest, res: Response): Promise
 export const updateInventoryItem = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const existing = store.inventory.get(id);
+    const existing = await DBService.getInventoryItem(id);
 
     if (!existing) {
       res.status(404).json({ error: 'Item not found' });
@@ -150,7 +153,7 @@ export const updateInventoryItem = async (req: AuthRequest, res: Response): Prom
       updatedAt: new Date().toISOString(),
     };
 
-    store.inventory.set(id, updatedItem);
+    await DBService.saveInventoryItem(updatedItem);
     res.json(updatedItem);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -160,8 +163,8 @@ export const updateInventoryItem = async (req: AuthRequest, res: Response): Prom
 export const deleteInventoryItem = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const existed = store.inventory.delete(id);
-    if (!existed) {
+    const success = await DBService.deleteInventoryItem(id);
+    if (!success) {
       res.status(404).json({ error: 'Item not found' });
       return;
     }

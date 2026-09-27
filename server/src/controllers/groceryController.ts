@@ -1,13 +1,13 @@
 import { Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { store } from '../services/store';
+import { DBService } from '../services/dbService';
 import { IGroceryItem, IInventoryItem } from '../types';
 import { AuthRequest } from '../middleware/auth';
 
 export const getGroceryList = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const items = Array.from(store.grocery.values()).filter((g) => g.userId === userId);
+    const items = await DBService.getGroceryItems(userId);
 
     const pending = items.filter((i) => !i.isPurchased);
     const purchased = items.filter((i) => i.isPurchased);
@@ -46,7 +46,7 @@ export const addGroceryItem = async (req: AuthRequest, res: Response): Promise<v
       createdAt: new Date().toISOString(),
     };
 
-    store.grocery.set(newItem.id, newItem);
+    await DBService.saveGroceryItem(newItem);
     res.status(201).json(newItem);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -56,19 +56,19 @@ export const addGroceryItem = async (req: AuthRequest, res: Response): Promise<v
 export const togglePurchased = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const item = store.grocery.get(id);
+    const item = await DBService.getGroceryItemById(id);
 
     if (!item) {
       res.status(404).json({ error: 'Grocery item not found' });
       return;
     }
 
-    const updated = {
+    const updated: IGroceryItem = {
       ...item,
       isPurchased: !item.isPurchased,
     };
 
-    store.grocery.set(id, updated);
+    await DBService.saveGroceryItem(updated);
     res.json(updated);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -78,12 +78,13 @@ export const togglePurchased = async (req: AuthRequest, res: Response): Promise<
 export const addCheckedToPantry = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id || 'user-alex-1';
-    const items = Array.from(store.grocery.values()).filter((g) => g.userId === userId && g.isPurchased);
+    const items = await DBService.getGroceryItems(userId);
+    const purchased = items.filter((g) => g.isPurchased);
 
     const now = new Date();
     const addedToPantry: IInventoryItem[] = [];
 
-    items.forEach((item) => {
+    for (const item of purchased) {
       const expDate = new Date(now.getTime() + 10 * 24 * 3600 * 1000).toISOString();
       const newPantryItem: IInventoryItem = {
         id: uuidv4(),
@@ -102,11 +103,10 @@ export const addCheckedToPantry = async (req: AuthRequest, res: Response): Promi
         updatedAt: now.toISOString(),
       };
 
-      store.inventory.set(newPantryItem.id, newPantryItem);
+      await DBService.saveInventoryItem(newPantryItem);
       addedToPantry.push(newPantryItem);
-      // Remove from grocery list
-      store.grocery.delete(item.id);
-    });
+      await DBService.deleteGroceryItem(item.id);
+    }
 
     res.json({
       message: `Transferred ${addedToPantry.length} items to your pantry inventory.`,
@@ -121,12 +121,56 @@ export const addCheckedToPantry = async (req: AuthRequest, res: Response): Promi
 export const deleteGroceryItem = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const id = String(req.params.id);
-    const deleted = store.grocery.delete(id);
-    if (!deleted) {
+    const success = await DBService.deleteGroceryItem(id);
+    if (!success) {
       res.status(404).json({ error: 'Item not found' });
       return;
     }
     res.json({ message: 'Grocery item deleted' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const addMissingFromRecipe = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id || 'user-alex-1';
+    const { recipeId } = req.body;
+
+    if (!recipeId) {
+      res.status(400).json({ error: 'Recipe ID is required.' });
+      return;
+    }
+
+    const recipe = await DBService.getRecipeById(recipeId);
+    if (!recipe) {
+      res.status(404).json({ error: 'Recipe not found.' });
+      return;
+    }
+
+    const missingIngredients = recipe.ingredients.filter((i) => !i.inStock);
+    const added: IGroceryItem[] = [];
+
+    for (const ing of missingIngredients) {
+      const newItem: IGroceryItem = {
+        id: uuidv4(),
+        userId,
+        name: ing.name,
+        quantity: ing.amount,
+        category: 'Pantry',
+        aisle: 'Recipe Needed',
+        isPurchased: false,
+        forRecipeTitle: recipe.title,
+        createdAt: new Date().toISOString(),
+      };
+      await DBService.saveGroceryItem(newItem);
+      added.push(newItem);
+    }
+
+    res.status(201).json({
+      message: `Added ${added.length} missing ingredients to grocery list for ${recipe.title}`,
+      items: added,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
